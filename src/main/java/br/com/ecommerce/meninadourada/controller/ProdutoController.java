@@ -48,7 +48,10 @@ public class ProdutoController {
      * @param files Uma lista de arquivos de imagem (opcional).
      * @return ResponseEntity com o Produto criado e status HTTP 201 (Created).
      */
-    @PostMapping(value = "/insert", consumes = {"multipart/form-data"}) // CORRIGIDO: Adicionado consumes
+    @PostMapping(value = "/insert", consumes = {
+            "multipart/form-data",
+            "multipart/form-data;charset=UTF-8"
+    })
     public ResponseEntity<Produto> cadastrarProduto(
             @RequestPart("productData") String productDataJson,
             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
@@ -58,6 +61,7 @@ public class ProdutoController {
 
             Produto novoProduto = produtoService.cadastrarProdutoComVariacoes(produtoRequestDTO, files);
             logger.info("Produto cadastrado com sucesso. ID: {}", novoProduto.getId());
+
             return ResponseEntity.status(HttpStatus.CREATED).body(novoProduto);
         } catch (Exception e) {
             logger.error("Erro ao cadastrar produto com upload de imagem: {}", e.getMessage(), e);
