@@ -48,14 +48,16 @@ public class ProdutoController {
      * @param files Uma lista de arquivos de imagem (opcional).
      * @return ResponseEntity com o Produto criado e status HTTP 201 (Created).
      */
-    @PostMapping("/insert")
+    @PostMapping("/insert") // REMOVIDO: consumes = {"multipart/form-data"} - Implícito pelo MultipartFile
     public ResponseEntity<Produto> cadastrarProduto(
-            @RequestPart("productData") String productDataJson,
+            @RequestParam("productData") String productDataJson, // ALTERADO: Usando @RequestParam para o JSON
             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         try {
+            // Deserializa o JSON string para ProdutoRequestDTO
             ProdutoRequestDTO produtoRequestDTO = objectMapper.readValue(productDataJson, ProdutoRequestDTO.class);
             logger.info("Recebida requisição para cadastrar novo produto: {}", produtoRequestDTO.getNome());
 
+            // Chama o serviço para cadastrar o produto, passando os arquivos
             Produto novoProduto = produtoService.cadastrarProdutoComVariacoes(produtoRequestDTO, files);
             logger.info("Produto cadastrado com sucesso. ID: {}", novoProduto.getId());
             return ResponseEntity.status(HttpStatus.CREATED).body(novoProduto);
