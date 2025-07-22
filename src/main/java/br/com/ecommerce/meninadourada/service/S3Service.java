@@ -1,7 +1,5 @@
 package br.com.ecommerce.meninadourada.service;
 
-
-
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -37,14 +35,13 @@ public class S3Service {
     /**
      * Realiza o upload de um arquivo para o Amazon S3.
      * O arquivo é salvo com um nome único (UUID) para evitar colisões.
-     * O acesso ao arquivo é público por padrão (READ).
      *
      * @param file O arquivo a ser enviado (MultipartFile).
      * @return A URL pública do file no S3.
      * @throws IOException Se houver um erro ao ler o InputStream do file.
      * @throws RuntimeException Se houver um erro no upload para o S3.
      */
-    public String uploadFile(MultipartFile file) throws IOException { // <<< Este método deve receber APENAS um MultipartFile
+    public String uploadFile(MultipartFile file) throws IOException {
         String originalFilename = file.getOriginalFilename();
         String fileName = UUID.randomUUID().toString() + "_" + originalFilename.replaceAll("\\s+", "_");
 
@@ -56,7 +53,7 @@ public class S3Service {
             PutObjectRequest putObjectRequest = new PutObjectRequest(
                     bucketName, fileName, file.getInputStream(), metadata);
 
-            putObjectRequest.withCannedAcl(CannedAccessControlList.PublicRead);
+            // REMOVIDO: putObjectRequest.withCannedAcl(CannedAccessControlList.PublicRead); // Esta linha foi removida
 
             s3Client.putObject(putObjectRequest);
             String fileUrl = s3Client.getUrl(bucketName, fileName).toString();
