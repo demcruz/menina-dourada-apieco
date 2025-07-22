@@ -40,11 +40,18 @@ public class ProdutoController {
         this.objectMapper = objectMapper; // Atribuição da instância injetada
     }
 
-
-    @PostMapping(value = "/insert", consumes = {"multipart/form-data"}) // Consome multipart/form-data
+    /**
+     * Endpoint HTTP POST para cadastrar um novo produto, incluindo upload de imagens para o S3.
+     * Recebe o JSON do produto como uma parte da requisição e os arquivos de imagem como outra parte.
+     *
+     * @param productDataJson O JSON do ProdutoRequestDTO como uma string.
+     * @param files Uma lista de arquivos de imagem (opcional).
+     * @return ResponseEntity com o Produto criado e status HTTP 201 (Created).
+     */
+    @PostMapping("/insert") // REMOVIDO: consumes = {"multipart/form-data"} - Implícito pelo MultipartFile
     public ResponseEntity<Produto> cadastrarProduto(
-            @RequestPart("productData") String productDataJson, // JSON do produto como string
-            @RequestPart(value = "files", required = false) List<MultipartFile> files) { // Arquivos de imagem
+            @RequestParam("productData") String productDataJson, // ALTERADO: Usando @RequestParam para o JSON
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         try {
             // Deserializa o JSON string para ProdutoRequestDTO
             ProdutoRequestDTO produtoRequestDTO = objectMapper.readValue(productDataJson, ProdutoRequestDTO.class);
@@ -53,12 +60,13 @@ public class ProdutoController {
             // Chama o serviço para cadastrar o produto, passando os arquivos
             Produto novoProduto = produtoService.cadastrarProdutoComVariacoes(produtoRequestDTO, files);
             logger.info("Produto cadastrado com sucesso. ID: {}", novoProduto.getId());
-            return ResponseEntity.status(HttpStatus.CREATED).body(novoProduto); // CORRIGIDO: de novoNovoProduto para novoProduto
+            return ResponseEntity.status(HttpStatus.CREATED).body(novoProduto);
         } catch (Exception e) {
             logger.error("Erro ao cadastrar produto com upload de imagem: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
     /**
      * Endpoint HTTP POST para cadastrar múltiplos produtos em lote.
      * NOTA: Este endpoint não suporta upload de imagens diretamente no lote com esta abordagem.
