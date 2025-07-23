@@ -278,6 +278,19 @@ public class ProdutoService {
         return updatedProduto;
     }
 
+
+    @Transactional
+    public void deletarTodosProdutos() {
+        logger.warn("Iniciando exclusão de TODOS os produtos. Esta operação é irreversível!");
+        try {
+            produtoRepository.deleteAll(); // Usa o método deleteAll() do MongoRepository
+            logger.info("Todos os produtos foram deletados com sucesso.");
+        } catch (Exception e) {
+            logger.error("Erro ao deletar todos os produtos: {}", e.getMessage(), e);
+            throw new RuntimeException("Falha ao deletar todos os produtos: " + e.getMessage(), e);
+        }
+    }
+
     /**
      * Deleta um produto pelo seu ID.
      *

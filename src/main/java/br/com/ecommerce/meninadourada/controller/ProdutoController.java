@@ -157,6 +157,15 @@ public class ProdutoController {
         return ResponseEntity.noContent().build();
     }
 
+
+    @DeleteMapping("/delete-all") // Novo endpoint para deletar todos
+    public ResponseEntity<Void> deletarTodosProdutos() {
+        logger.warn("Recebida requisição para DELETAR TODOS OS PRODUTOS. Esta operação é irreversível!");
+        produtoService.deletarTodosProdutos(); // Chamada ao novo método no service
+        logger.info("Todos os produtos foram deletados com sucesso.");
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * Handler de exceção para ResourceNotFoundException.
      * Retorna status HTTP 404 (Not Found) quando um recurso não é encontrado.
