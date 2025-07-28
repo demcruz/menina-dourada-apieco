@@ -97,7 +97,7 @@ public class MercadoPagoService {
                             .email(dto.getPayerEmail())
                             .build())
                     .backUrls(backUrls)
-                    .autoReturn("approved_only")
+                    .autoReturn("approved")
                     .notificationUrl("http://18.228.9.73:9090/api/payments/webhook/mercadopago") // Sua URL de webhook
                     .build();
 
