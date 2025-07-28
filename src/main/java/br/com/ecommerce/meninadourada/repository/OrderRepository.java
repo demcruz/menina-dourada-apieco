@@ -5,26 +5,27 @@ import br.com.ecommerce.meninadourada.model.Order;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional; // Importe Optional
+
 
 /**
  * Repositório para a entidade Order, utilizando Spring Data MongoDB.
  * Estende MongoRepository para obter métodos CRUD básicos automaticamente.
  * O primeiro parâmetro é a entidade (Order) e o segundo é o tipo do ID (String).
  */
-@Repository // Indica que esta interface é um componente de repositório do Spring
+@Repository
 public interface OrderRepository extends MongoRepository<Order, String> {
-    // MongoRepository já fornece os seguintes métodos automaticamente:
-    // save(entity) - Salva uma entidade
-    // findById(id) - Busca uma entidade pelo ID
-    // findAll() - Lista todas as entidades
-    // delete(entity) - Deleta uma entidade
-    // deleteAll() - Deleta todas as entidades
-    // count() - Conta o número de entidades
-    // E muitos outros...
+    /**
+     * Busca um pedido pelo ID de pagamento (ID da Preferência ou Order ID do Mercado Pago).
+     * @param paymentId O ID de pagamento do Mercado Pago.
+     * @return Um Optional contendo o Pedido, se encontrado, ou vazio.
+     */
+    Optional<Order> findByPaymentId(String paymentId);
 
-    // Você pode adicionar métodos de busca personalizados aqui se precisar de queries específicas.
-    // O Spring Data MongoDB pode inferir a query a partir do nome do método.
-    // Exemplo:
-    // List<Order> findByUserId(String userId);
-    // List<Order> findByStatus(OrderStatus status);
+    /**
+     * Busca um pedido pela sua referência externa (external_reference) do Mercado Pago.
+     * @param externalReference A referência externa do Mercado Pago.
+     * @return Um Optional contendo o Pedido, se encontrado, ou vazio.
+     */
+    Optional<Order> findByExternalReference(String externalReference); // NOVO: Método para buscar pela externalReference
 }

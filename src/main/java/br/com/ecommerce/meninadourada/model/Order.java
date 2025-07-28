@@ -2,117 +2,119 @@ package br.com.ecommerce.meninadourada.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-@Document(collection = "orders")
+/**
+ * Represents an Order in MongoDB.
+ * Contains information about the customer, order items, status, and payment details.
+ */
+@Document(collection = "orders") // Collection name in MongoDB
 public class Order {
 
     @Id
     private String id;
 
-    private String userId;
+    @Field("userId")
+    private String userId; // ID of the user who placed the order
 
-    private LocalDateTime orderDate;    // ← Novo campo
+    @Field("orderDate")
+    private LocalDateTime orderDate; // Date and time of the order
 
-    private BigDecimal totalAmount;
+    @Field("items")
+    private List<OrderItem> items = new ArrayList<>(); // Order items
 
-    private String paymentId;
+    @Field("totalAmount")
+    private BigDecimal totalAmount; // Total amount of the order
 
-    private String paymentStatus;
+    @Field("status")
+    private OrderStatus status; // Order status (PENDING, PAID, SHIPPED, etc.)
 
-    private OrderStatus status;
+    @Field("paymentId")
+    private String paymentId; // Payment transaction ID (e.g., Mercado Pago Preference ID or Order ID)
 
-    private List<OrderItem> items;
+    @Field("paymentStatus")
+    private String paymentStatus; // Payment status (PENDING, APPROVED, REJECTED, etc.)
 
-    // Construtor vazio (requerido pelo Spring/Data)
+    @Field("externalReference") // NOVO: Campo para a external_reference do Mercado Pago
+    private String externalReference;
+
+    // Default constructor
     public Order() {
+        this.orderDate = LocalDateTime.now();
+        this.status = OrderStatus.PENDING; // Initial status
     }
 
-    // Construtor completo (opcional)
-    public Order(String id,
-                 String userId,
-                 LocalDateTime orderDate,
-                 BigDecimal totalAmount,
-                 String paymentId,
-                 String paymentStatus,
-                 OrderStatus status,
-                 List<OrderItem> items) {
+    // Constructor with all arguments (incluindo externalReference)
+    public Order(String id, String userId, LocalDateTime orderDate, List<OrderItem> items, BigDecimal totalAmount, OrderStatus status, String paymentId, String paymentStatus, String externalReference) {
         this.id = id;
         this.userId = userId;
         this.orderDate = orderDate;
+        this.items = items;
         this.totalAmount = totalAmount;
+        this.status = status;
         this.paymentId = paymentId;
         this.paymentStatus = paymentStatus;
-        this.status = status;
-        this.items = items;
+        this.externalReference = externalReference;
     }
 
-    // Getters & Setters
+    // Getters and Setters
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+    public LocalDateTime getOrderDate() { return orderDate; }
+    public void setOrderDate(LocalDateTime orderDate) { this.orderDate = orderDate; }
+    public List<OrderItem> getItems() { return items; }
+    public void setItems(List<OrderItem> items) { this.items = items; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+    public OrderStatus getStatus() { return status; }
+    public void setStatus(OrderStatus status) { this.status = status; }
+    public String getPaymentId() { return paymentId; }
+    public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+    public String getExternalReference() { return externalReference; } // NOVO: Getter para externalReference
+    public void setExternalReference(String externalReference) { this.externalReference = externalReference; } // NOVO: Setter para externalReference
 
-    public String getId() {
-        return id;
+    public void addItem(OrderItem item) {
+        if (this.items == null) {
+            this.items = new ArrayList<>();
+        }
+        this.items.add(item);
     }
 
-    public void setId(String id) {
-        this.id = id;
+    @Override
+    public String toString() {
+        return "Order{" +
+                "id='" + id + '\'' +
+                ", userId='" + userId + '\'' +
+                ", orderDate=" + orderDate +
+                ", items=" + items +
+                ", totalAmount=" + totalAmount +
+                ", status=" + status +
+                ", paymentId='" + paymentId + '\'' +
+                ", paymentStatus='" + paymentStatus + '\'' +
+                ", externalReference='" + externalReference + '\'' + // NOVO: Incluir no toString
+                '}';
     }
 
-    public String getUserId() {
-        return userId;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Order order = (Order) o;
+        return Objects.equals(id, order.id);
     }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public LocalDateTime getOrderDate() {
-        return orderDate;
-    }
-
-    public void setOrderDate(LocalDateTime orderDate) {
-        this.orderDate = orderDate;
-    }
-
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
-
-    public void setTotalAmount(BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-    }
-
-    public String getPaymentId() {
-        return paymentId;
-    }
-
-    public void setPaymentId(String paymentId) {
-        this.paymentId = paymentId;
-    }
-
-    public String getPaymentStatus() {
-        return paymentStatus;
-    }
-
-    public void setPaymentStatus(String paymentStatus) {
-        this.paymentStatus = paymentStatus;
-    }
-
-    public OrderStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(OrderStatus status) {
-        this.status = status;
-    }
-
-    public List<OrderItem> getItems() {
-        return items;
-    }
-
-    public void setItems(List<OrderItem> items) {
-        this.items = items;
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }
