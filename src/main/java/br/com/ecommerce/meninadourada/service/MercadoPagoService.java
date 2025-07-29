@@ -86,8 +86,8 @@ public class MercadoPagoService {
 
             PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
                     .success("https://meninadourada.shop/checkout/success")
-                    .pending("https://meninadourada.shop/checkout/failure")
-                    .failure("https://meninadourada.shop/checkout/pending")
+                    .pending("https://meninadourada.shop/checkout/pending")
+                    .failure("https://meninadourada.shop/checkout/rejected")
                     .build();
 
             PreferenceRequest request = PreferenceRequest.builder()
@@ -97,7 +97,7 @@ public class MercadoPagoService {
                             .email(dto.getPayerEmail())
                             .build())
                     .backUrls(backUrls)
-                    .autoReturn("approved")
+                    .autoReturn("all")
                     .notificationUrl("http://18.228.9.73:9090/api/payments/webhook/mercadopago") // Sua URL de webhook
                     .build();
 
