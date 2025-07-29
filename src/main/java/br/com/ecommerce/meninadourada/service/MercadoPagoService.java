@@ -85,9 +85,9 @@ public class MercadoPagoService {
             String orderExternalReference = UUID.randomUUID().toString();
 
             PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
-                    .success("http://localhost:3000/checkout/success")
-                    .pending("http://localhost:3000/checkout/pending")
-                    .failure("http://localhost:3000/checkout/failure")
+                    .success("https://meninadourada.shop/checkout/success")
+                    .pending("https://meninadourada.shop/checkout/failure")
+                    .failure("https://meninadourada.shop/checkout/pending")
                     .build();
 
             PreferenceRequest request = PreferenceRequest.builder()
