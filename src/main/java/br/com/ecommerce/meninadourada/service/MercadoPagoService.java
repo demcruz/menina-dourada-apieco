@@ -98,7 +98,7 @@ public class MercadoPagoService {
                             .build())
                     .backUrls(backUrls)
                     .autoReturn("all")
-                    .notificationUrl("https://18.228.9.73:9090/api/payments/webhook/mercadopago") // Sua URL de webhook
+                    .notificationUrl("https://meninadourada.shop/api/payments/webhook/mercadopago") // Sua URL de webhook
                     .build();
 
             Preference p = new PreferenceClient().create(request);
