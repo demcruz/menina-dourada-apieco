@@ -14,6 +14,7 @@ import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.resources.payment.Payment;
 import com.mercadopago.client.merchantorder.MerchantOrderClient;
 import com.mercadopago.resources.merchantorder.MerchantOrder;
+import com.mercadopago.resources.merchantorder.MerchantOrderPayment;
 
 import br.com.ecommerce.meninadourada.dto.OrderItemDTO;
 import br.com.ecommerce.meninadourada.dto.PaymentRequestDTO;
@@ -34,6 +35,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 import org.bson.types.ObjectId;
 
@@ -218,15 +220,17 @@ public class MercadoPagoService {
 
                 order.setPaymentStatus(payment.getStatus());
                 order.setStatus(mapMercadoPagoStatusToOrderStatus(payment.getStatus()));
+                // store the payment transaction id
+                order.setPaymentId(String.valueOf(payment.getId()));
 
                 orderRepository.save(order);
                 logger.info("Pedido {} atualizado via webhook. Novo status: {}. Status MP: {}",
                         order.getId(), order.getStatus(), payment.getStatus());
 
-                // NOVO: Enviar e-mails após a aprovação do pagamento
-                if ("approved".equals(payment.getStatus())) {
-                    emailService.sendOrderConfirmationEmailToCustomer(order); // Envia para o cliente
-                    emailService.sendNewSaleNotificationToStore(order); // Envia para a loja
+                // Send emails if the final status is PAID
+                if (order.getStatus() == OrderStatus.PAID) {
+                    emailService.sendOrderConfirmationEmailToCustomer(order);
+                    emailService.sendNewSaleNotificationToStore(order);
                 }
 
             } else if ("merchant_order".equals(topic)) {
@@ -239,12 +243,19 @@ public class MercadoPagoService {
 
                 order.setPaymentStatus(merchantOrder.getOrderStatus());
                 order.setStatus(mapMercadoPagoStatusToOrderStatus(merchantOrder.getOrderStatus()));
+
+                if (merchantOrder.getPayments() != null) {
+                    merchantOrder.getPayments().stream()
+                            .filter(p -> "approved".equalsIgnoreCase(p.getStatus()))
+                            .findFirst()
+                            .ifPresent(p -> order.setPaymentId(String.valueOf(p.getId())));
+                }
+
                 orderRepository.save(order);
                 logger.info("Pedido {} atualizado via webhook (Merchant Order). Novo status: {}. Status MO: {}",
                         order.getId(), order.getStatus(), merchantOrder.getOrderStatus());
 
-                // NOVO: Enviar e-mails após a aprovação da Merchant Order (se o status for final de aprovação)
-                if ("closed".equals(merchantOrder.getOrderStatus()) || "paid".equals(merchantOrder.getOrderStatus())) { // 'closed' ou 'paid' indicam finalização
+                if (order.getStatus() == OrderStatus.PAID) {
                     emailService.sendOrderConfirmationEmailToCustomer(order);
                     emailService.sendNewSaleNotificationToStore(order);
                 }
