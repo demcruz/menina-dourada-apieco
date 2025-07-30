@@ -65,7 +65,10 @@
 			<version>2.5.0</version>
 		</dependency>
 
-		<!-- A dependência do Lombok foi removida -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 
 		<!-- Dependências JWT (manter se você planeja usá-las) -->
 		<dependency>

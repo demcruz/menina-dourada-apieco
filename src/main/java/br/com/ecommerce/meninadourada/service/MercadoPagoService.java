@@ -21,14 +21,14 @@ import br.com.ecommerce.meninadourada.dto.PreferenceResponseDTO;
 import br.com.ecommerce.meninadourada.model.Order; // Sua entidade Order
 import br.com.ecommerce.meninadourada.model.OrderStatus;
 import br.com.ecommerce.meninadourada.repository.OrderRepository;
-import br.com.ecommerce.meninadourada.exception.ResourceNotFoundException; // Para quando o pedido não é encontrado
+import br.com.ecommerce.meninadourada.exception.ResourceNotFoundException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // Para transações no MongoDB
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,6 +36,15 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.bson.types.ObjectId;
+
+// NOVO: Importações para dados de endereço e telefone do Mercado Pago (pacote common)
+import com.mercadopago.client.common.AddressRequest; // Adicionado
+import com.mercadopago.client.common.PhoneRequest; // Adicionado
+import com.mercadopago.client.common.IdentificationRequest; // Adicionado
+import com.mercadopago.client.preference.PreferenceReceiverAddressRequest;
+import com.mercadopago.client.preference.PreferenceShipmentsRequest;
+
+
 
 @Service
 public class MercadoPagoService {
@@ -47,15 +56,17 @@ public class MercadoPagoService {
 
     private final OrderRepository orderRepository;
     private final PreferenceClient preferenceClient;
-    private final PaymentClient paymentClient; // Cliente para buscar detalhes de Payment
-    private final MerchantOrderClient merchantOrderClient; // Cliente para buscar detalhes de MerchantOrder
+    private final PaymentClient paymentClient;
+    private final MerchantOrderClient merchantOrderClient;
+    private final EmailService emailService; // NOVO: Injete o EmailService
 
     @Autowired
-    public MercadoPagoService(OrderRepository orderRepository) {
+    public MercadoPagoService(OrderRepository orderRepository, EmailService emailService) { // NOVO: Adicione EmailService ao construtor
         this.orderRepository = orderRepository;
         this.preferenceClient = new PreferenceClient();
-        this.paymentClient = new PaymentClient(); // Instancia PaymentClient
-        this.merchantOrderClient = new MerchantOrderClient(); // Instancia MerchantOrderClient
+        this.paymentClient = new PaymentClient();
+        this.merchantOrderClient = new MerchantOrderClient();
+        this.emailService = emailService; // Atribua o EmailService
     }
 
     private void configureMercadoPagoSdk() {
@@ -75,7 +86,6 @@ public class MercadoPagoService {
                             .id(i.getProductId())
                             .title(i.getProductName() + " - " + i.getVariationId())
                             .quantity(Math.toIntExact(i.getQuantity()))
-                            // CORRIGIDO: Removida a conversão para Long.
                             .unitPrice(i.getUnitPrice())
                             .currencyId("BRL")
                             .build()
@@ -83,6 +93,40 @@ public class MercadoPagoService {
 
             // Gerar a externalReference ANTES de criar a preferência para poder salvá-la no Order
             String orderExternalReference = UUID.randomUUID().toString();
+
+            // Construir o PayerRequest com dados completos do cliente
+            PreferencePayerRequest mpPayerRequest = PreferencePayerRequest.builder()
+                    .name(dto.getCustomerName())
+                    .email(dto.getPayerEmail())
+                    .phone(PhoneRequest.builder()
+                            .areaCode(dto.getCustomerPhone().substring(0, 2)) // Assumindo DDD nos 2 primeiros dígitos
+                            .number(dto.getCustomerPhone().substring(2)) // Restante do número
+                            .build())
+                    .identification(IdentificationRequest.builder()
+                            .type("CPF") // Tipo de documento
+                            .number(dto.getCustomerCpf()) // Número do CPF
+                            .build())
+                    .address(AddressRequest.builder() // Endereço do pagador
+                            .zipCode(dto.getShippingAddress().getZipCode())
+                            .streetName(dto.getShippingAddress().getStreetName())
+                            .streetNumber(dto.getShippingAddress().getStreetNumber())
+                            .city(dto.getShippingAddress().getCityName()) // Campo 'city' no MP
+                            .state(dto.getShippingAddress().getStateName()) // Campo 'state' no MP
+                            .build())
+                    .build();
+
+            // Construir o ShipmentsRequest com dados de entrega
+            PreferenceShipmentsRequest mpShipmentsRequest = PreferenceShipmentsRequest.builder()
+                    .receiverAddress(PreferenceReceiverAddressRequest.builder()
+                            .zipCode(dto.getShippingAddress().getZipCode())
+                            .streetName(dto.getShippingAddress().getStreetName())
+                            .streetNumber(dto.getShippingAddress().getStreetNumber())
+                            .cityName(dto.getShippingAddress().getCityName())
+                            .stateName(dto.getShippingAddress().getStateName())
+                            .countryName(dto.getShippingAddress().getCountryName())
+                            .build())
+                    .build();
+
 
             PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
                     .success("https://meninadourada.shop/checkout/success")
@@ -92,10 +136,9 @@ public class MercadoPagoService {
 
             PreferenceRequest request = PreferenceRequest.builder()
                     .items(items)
-                    .externalReference(orderExternalReference) // Usar a externalReference gerada
-                    .payer(com.mercadopago.client.preference.PreferencePayerRequest.builder()
-                            .email(dto.getPayerEmail())
-                            .build())
+                    .externalReference(orderExternalReference)
+                    .payer(mpPayerRequest)
+                    .shipments(mpShipmentsRequest) // Adicionar informações de envio
                     .backUrls(backUrls)
                     .autoReturn("all")
                     .notificationUrl("https://meninadourada.shop/api/payments/webhook/mercadopago") // Sua URL de webhook
@@ -111,7 +154,7 @@ public class MercadoPagoService {
                 newOrder.setId(new ObjectId().toHexString());
                 newOrder.setUserId(dto.getUserId());
                 newOrder.setTotalAmount(dto.getTotalAmount());
-                newOrder.setPaymentId(p.getId()); // ID da preferência do Mercado Pago
+                newOrder.setPaymentId(p.getId());
                 newOrder.setPaymentStatus("PENDING_CHECKOUT_MP");
                 newOrder.setStatus(OrderStatus.PENDING);
                 newOrder.setItems(dto.getItems().stream()
@@ -122,8 +165,14 @@ public class MercadoPagoService {
                                 itemDto.getQuantity(),
                                 itemDto.getUnitPrice()
                         )).collect(Collectors.toList()));
-                // NOVO: Salvar a externalReference no seu objeto Order para fácil busca no webhook
-                newOrder.setExternalReference(orderExternalReference); // Adicionar este setter ao seu modelo Order
+                newOrder.setExternalReference(orderExternalReference);
+                // Popular os dados do cliente e endereço no seu objeto Order
+                newOrder.setCustomerName(dto.getCustomerName());
+                newOrder.setCustomerEmail(dto.getPayerEmail());
+                newOrder.setCustomerPhone(dto.getCustomerPhone());
+                newOrder.setCustomerCpf(dto.getCustomerCpf());
+                newOrder.setShippingAddress(dto.getShippingAddress());
+
                 orderRepository.save(newOrder);
                 logger.info("Order saved in MongoDB with preference ID: {} and External Reference: {}", p.getId(), orderExternalReference);
 
@@ -146,12 +195,74 @@ public class MercadoPagoService {
             throw new RuntimeException("Erro inesperado ao criar preferência de pagamento: " + e.getMessage(), e);
         }
     }
-
     /**
-     * Maps Mercado Pago Order status to your OrderStatus enum.
-     * @param mpStatus Mercado Pago Order status.
-     * @return Your corresponding OrderStatus enum.
+     * Lida com notificações do webhook do Mercado Pago.
+     * Esta função é crucial para atualizar o status do pedido no seu sistema.
+     *
+     * @param id Notification ID or payment ID.
+     * @param topic Notification topic (e.g., "payment", "merchant_order").
      */
+    @Transactional // Garante que a atualização do pedido seja atômica
+    public void handleWebhookNotification(String id, String topic) {
+        logger.info("🛈 Processing MP webhook. id={}, topic={}", id, topic);
+        configureMercadoPagoSdk();
+
+        try {
+            if ("payment".equals(topic)) {
+                Payment payment = paymentClient.get(Long.valueOf(id));
+                logger.info("Detalhes do Payment (ID: {}): Status: {}, External Reference: {}",
+                        payment.getId(), payment.getStatus(), payment.getExternalReference());
+
+                Order order = orderRepository.findByExternalReference(payment.getExternalReference())
+                        .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado para External Reference: " + payment.getExternalReference()));
+
+                order.setPaymentStatus(payment.getStatus());
+                order.setStatus(mapMercadoPagoStatusToOrderStatus(payment.getStatus()));
+
+                orderRepository.save(order);
+                logger.info("Pedido {} atualizado via webhook. Novo status: {}. Status MP: {}",
+                        order.getId(), order.getStatus(), payment.getStatus());
+
+                // NOVO: Enviar e-mails após a aprovação do pagamento
+                if ("approved".equals(payment.getStatus())) {
+                    emailService.sendOrderConfirmationEmailToCustomer(order); // Envia para o cliente
+                    emailService.sendNewSaleNotificationToStore(order); // Envia para a loja
+                }
+
+            } else if ("merchant_order".equals(topic)) {
+                MerchantOrder merchantOrder = merchantOrderClient.get(Long.valueOf(id));
+                logger.info("Detalhes da Merchant Order (ID: {}): Status: {}, External Reference: {}",
+                        merchantOrder.getId(), merchantOrder.getOrderStatus(), merchantOrder.getExternalReference());
+
+                Order order = orderRepository.findByExternalReference(merchantOrder.getExternalReference())
+                        .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado para Merchant Order External Reference: " + merchantOrder.getExternalReference()));
+
+                order.setPaymentStatus(merchantOrder.getOrderStatus());
+                order.setStatus(mapMercadoPagoStatusToOrderStatus(merchantOrder.getOrderStatus()));
+                orderRepository.save(order);
+                logger.info("Pedido {} atualizado via webhook (Merchant Order). Novo status: {}. Status MO: {}",
+                        order.getId(), order.getStatus(), merchantOrder.getOrderStatus());
+
+                // NOVO: Enviar e-mails após a aprovação da Merchant Order (se o status for final de aprovação)
+                if ("closed".equals(merchantOrder.getOrderStatus()) || "paid".equals(merchantOrder.getOrderStatus())) { // 'closed' ou 'paid' indicam finalização
+                    emailService.sendOrderConfirmationEmailToCustomer(order);
+                    emailService.sendNewSaleNotificationToStore(order);
+                }
+
+            } else {
+                logger.warn("Webhook com tópico desconhecido ou não processado: {}", topic);
+            }
+        } catch (ResourceNotFoundException e) {
+            logger.error("Erro no webhook: {}", e.getMessage());
+        } catch (MPApiException e) {
+            logger.error("🔴 MP API error no webhook. Status: {}, Resposta: {}", e.getStatusCode(), e.getApiResponse().getContent());
+        } catch (MPException e) {
+            logger.error("🔴 MP SDK error no webhook: {}", e.getMessage());
+        } catch (Exception e) {
+            logger.error("Erro inesperado ao processar webhook: {}", e.getMessage(), e);
+        }
+    }
+
     private OrderStatus mapMercadoPagoStatusToOrderStatus(String mpStatus) {
         switch (mpStatus) {
             case "approved":
@@ -162,78 +273,8 @@ public class MercadoPagoService {
                 return OrderStatus.REJECTED;
             case "cancelled":
                 return OrderStatus.CANCELLED;
-            // Adicione outros mapeamentos conforme a documentação do Mercado Pago
             default:
-                return OrderStatus.PENDING; // Default or unknown status
-        }
-    }
-
-    /**
-     * Lida com notificações do webhook do Mercado Pago.
-     * Esta função é crucial para atualizar o status do pedido no seu sistema.
-     *
-     * @param id ID da notificação ou ID do pagamento/merchant_order.
-     * @param topic Tópico da notificação (ex: "payment", "merchant_order").
-     */
-    @Transactional // Garante que a atualização do pedido seja atômica
-    public void handleWebhookNotification(String id, String topic) {
-        logger.info("🛈 Processing MP webhook. id={}, topic={}", id, topic);
-        configureMercadoPagoSdk(); // Garante que o token está configurado para as chamadas da API do MP
-
-        try {
-            if ("payment".equals(topic)) {
-                // Notificação de um pagamento específico
-                // CORRIGIDO: Converter String id para Long
-                Payment payment = paymentClient.get(Long.valueOf(id)); // Busca os detalhes do pagamento
-                logger.info("Detalhes do Payment (ID: {}): Status: {}, External Reference: {}",
-                        payment.getId(), payment.getStatus(), payment.getExternalReference());
-
-                // Buscar o pedido no seu DB pela externalReference do Payment
-                // A externalReference do Payment DEVE ser o mesmo UUID que você gerou para o Order.externalReference
-                Order order = orderRepository.findByExternalReference(payment.getExternalReference())
-                        .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado para External Reference: " + payment.getExternalReference()));
-
-                // Atualizar o status do pedido no seu sistema
-                order.setPaymentStatus(payment.getStatus()); // Status do pagamento do Mercado Pago
-                order.setStatus(mapMercadoPagoStatusToOrderStatus(payment.getStatus())); // Mapeia para seu enum
-
-                orderRepository.save(order);
-                logger.info("Pedido {} atualizado via webhook. Novo status: {}. Status MP: {}",
-                        order.getId(), order.getStatus(), payment.getStatus());
-
-                // Aqui você também daria baixa no estoque, enviaria e-mails de confirmação, etc.
-
-            } else if ("merchant_order".equals(topic)) {
-                // Notificação de uma ordem de compra (agrupamento de pagamentos)
-                // CORRIGIDO: Converter String id para Long
-                MerchantOrder merchantOrder = merchantOrderClient.get(Long.valueOf(id)); // Busca os detalhes da Merchant Order
-                logger.info("Detalhes da Merchant Order (ID: {}): Status: {}, External Reference: {}",
-                        merchantOrder.getId(), merchantOrder.getOrderStatus(), merchantOrder.getExternalReference());
-
-                // Buscar o pedido no seu DB pela externalReference da MerchantOrder
-                // A externalReference da MerchantOrder DEVE ser o mesmo UUID que você gerou para o Order.externalReference
-                Order order = orderRepository.findByExternalReference(merchantOrder.getExternalReference())
-                        .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado para Merchant Order External Reference: " + merchantOrder.getExternalReference()));
-
-                // Atualizar status baseado na Merchant Order
-                order.setPaymentStatus(merchantOrder.getOrderStatus());
-                order.setStatus(mapMercadoPagoStatusToOrderStatus(merchantOrder.getOrderStatus()));
-                orderRepository.save(order);
-                logger.info("Pedido {} atualizado via webhook (Merchant Order). Novo status: {}. Status MO: {}",
-                        order.getId(), order.getStatus(), merchantOrder.getOrderStatus());
-
-            } else {
-                logger.warn("Webhook com tópico desconhecido ou não processado: {}", topic);
-            }
-        } catch (ResourceNotFoundException e) {
-            logger.error("Erro no webhook: {}", e.getMessage());
-            // Não relance a exceção para o Mercado Pago, apenas logue.
-        } catch (MPApiException e) {
-            logger.error("🔴 MP API error no webhook. Status: {}, Resposta: {}", e.getStatusCode(), e.getApiResponse().getContent());
-        } catch (MPException e) {
-            logger.error("🔴 MP SDK error no webhook: {}", e.getMessage());
-        } catch (Exception e) {
-            logger.error("Erro inesperado ao processar webhook: {}", e.getMessage(), e);
+                return OrderStatus.PENDING;
         }
     }
 }

@@ -21,6 +21,8 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+
 
     private final OrderRepository orderRepository;
     private final ProdutoRepository produtoRepository; // To check stock
@@ -120,4 +122,24 @@ public class OrderService {
         logger.info("Listing all orders.");
         return orderRepository.findAll();
     }
+
+
+
+    public boolean updateOrderAfterPayment(String preferenceId, String paymentId, String paymentStatus) {
+        Optional<Order> optionalOrder = orderRepository.findByPaymentId(preferenceId); // Lembrando: você salvou o preferenceId como paymentId inicialmente
+
+        if (optionalOrder.isPresent()) {
+            Order order = optionalOrder.get();
+            order.setPaymentId(paymentId);
+            order.setPaymentStatus(paymentStatus);
+            orderRepository.save(order);
+            log.info("🟢 Pedido atualizado com paymentId {} e status {}", paymentId, paymentStatus);
+            return true;
+        } else {
+            log.warn("⚠️ Nenhum pedido encontrado com preferenceId: {}", preferenceId);
+            return false;
+        }
+    }
+
+
 }

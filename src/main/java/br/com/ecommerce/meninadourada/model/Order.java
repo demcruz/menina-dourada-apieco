@@ -13,6 +13,7 @@ import java.util.Objects;
 /**
  * Represents an Order in MongoDB.
  * Contains information about the customer, order items, status, and payment details.
+ * Updated to include customer contact and shipping address details.
  */
 @Document(collection = "orders") // Collection name in MongoDB
 public class Order {
@@ -41,8 +42,21 @@ public class Order {
     @Field("paymentStatus")
     private String paymentStatus; // Payment status (PENDING, APPROVED, REJECTED, etc.)
 
-    @Field("externalReference") // NOVO: Campo para a external_reference do Mercado Pago
-    private String externalReference;
+    @Field("externalReference")
+    private String externalReference; // External reference from Mercado Pago (UUID)
+
+    // Dados do Cliente para Contato e Envio
+    @Field("customerName")
+    private String customerName; // Nome completo do cliente
+    @Field("customerEmail")
+    private String customerEmail; // Email do cliente
+    @Field("customerPhone")
+    private String customerPhone; // Telefone do cliente (ex: "11987654321")
+    @Field("customerCpf") // NOVO: CPF do cliente
+    private String customerCpf;
+
+    @Field("shippingAddress")
+    private ShippingAddress shippingAddress; // Endereço de entrega
 
     // Default constructor
     public Order() {
@@ -50,8 +64,8 @@ public class Order {
         this.status = OrderStatus.PENDING; // Initial status
     }
 
-    // Constructor with all arguments (incluindo externalReference)
-    public Order(String id, String userId, LocalDateTime orderDate, List<OrderItem> items, BigDecimal totalAmount, OrderStatus status, String paymentId, String paymentStatus, String externalReference) {
+    // Constructor with all arguments (updated to include new fields)
+    public Order(String id, String userId, LocalDateTime orderDate, List<OrderItem> items, BigDecimal totalAmount, OrderStatus status, String paymentId, String paymentStatus, String externalReference, String customerName, String customerEmail, String customerPhone, String customerCpf, ShippingAddress shippingAddress) {
         this.id = id;
         this.userId = userId;
         this.orderDate = orderDate;
@@ -61,9 +75,14 @@ public class Order {
         this.paymentId = paymentId;
         this.paymentStatus = paymentStatus;
         this.externalReference = externalReference;
+        this.customerName = customerName;
+        this.customerEmail = customerEmail;
+        this.customerPhone = customerPhone;
+        this.customerCpf = customerCpf; // NOVO: Atribuição no construtor
+        this.shippingAddress = shippingAddress;
     }
 
-    // Getters and Setters
+    // Getters and Setters (updated for new fields)
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getUserId() { return userId; }
@@ -80,8 +99,18 @@ public class Order {
     public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
     public String getPaymentStatus() { return paymentStatus; }
     public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
-    public String getExternalReference() { return externalReference; } // NOVO: Getter para externalReference
-    public void setExternalReference(String externalReference) { this.externalReference = externalReference; } // NOVO: Setter para externalReference
+    public String getExternalReference() { return externalReference; }
+    public void setExternalReference(String externalReference) { this.externalReference = externalReference; }
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String customerName) { this.customerName = customerName; }
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+    public String getCustomerPhone() { return customerPhone; }
+    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
+    public String getCustomerCpf() { return customerCpf; } // NOVO: Getter
+    public void setCustomerCpf(String customerCpf) { this.customerCpf = customerCpf; } // NOVO: Setter
+    public ShippingAddress getShippingAddress() { return shippingAddress; }
+    public void setShippingAddress(ShippingAddress shippingAddress) { this.shippingAddress = shippingAddress; }
 
     public void addItem(OrderItem item) {
         if (this.items == null) {
@@ -101,7 +130,12 @@ public class Order {
                 ", status=" + status +
                 ", paymentId='" + paymentId + '\'' +
                 ", paymentStatus='" + paymentStatus + '\'' +
-                ", externalReference='" + externalReference + '\'' + // NOVO: Incluir no toString
+                ", externalReference='" + externalReference + '\'' +
+                ", customerName='" + customerName + '\'' +
+                ", customerEmail='" + customerEmail + '\'' +
+                ", customerPhone='" + customerPhone + '\'' +
+                ", customerCpf='" + customerCpf + '\'' + // NOVO: Incluir no toString
+                ", shippingAddress=" + shippingAddress +
                 '}';
     }
 
