@@ -4,6 +4,7 @@ import br.com.ecommerce.meninadourada.exception.ResourceNotFoundException;
 import br.com.ecommerce.meninadourada.model.*;
 import br.com.ecommerce.meninadourada.repository.OrderRepository;
 import br.com.ecommerce.meninadourada.repository.ProdutoRepository;
+import br.com.ecommerce.meninadourada.service.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,11 +27,13 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProdutoRepository produtoRepository; // To check stock
+    private final EmailService emailService;
 
     @Autowired
-    public OrderService(OrderRepository orderRepository, ProdutoRepository produtoRepository) {
+    public OrderService(OrderRepository orderRepository, ProdutoRepository produtoRepository, EmailService emailService) {
         this.orderRepository = orderRepository;
         this.produtoRepository = produtoRepository;
+        this.emailService = emailService;
     }
 
     /**
@@ -132,13 +135,36 @@ public class OrderService {
             Order order = optionalOrder.get();
             order.setPaymentId(paymentId);
             order.setPaymentStatus(paymentStatus);
+
+            OrderStatus newStatus = mapMercadoPagoStatus(paymentStatus);
+            order.setStatus(newStatus);
+
             orderRepository.save(order);
             log.info("🟢 Pedido atualizado com paymentId {} e status {}", paymentId, paymentStatus);
+
+            if (newStatus == OrderStatus.PAID) {
+                emailService.sendOrderConfirmationEmailToCustomer(order);
+                emailService.sendNewSaleNotificationToStore(order);
+            }
+
             return true;
         } else {
             log.warn("⚠️ Nenhum pedido encontrado com preferenceId: {}", preferenceId);
             return false;
         }
+    }
+
+    private OrderStatus mapMercadoPagoStatus(String mpStatus) {
+        if (mpStatus == null) {
+            return OrderStatus.PENDING;
+        }
+        return switch (mpStatus.toLowerCase()) {
+            case "approved" -> OrderStatus.PAID;
+            case "pending" -> OrderStatus.PENDING;
+            case "rejected" -> OrderStatus.REJECTED;
+            case "cancelled" -> OrderStatus.CANCELLED;
+            default -> OrderStatus.PENDING;
+        };
     }
 
 
