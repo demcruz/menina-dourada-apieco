@@ -78,7 +78,7 @@ public class PaymentController {
         log.info("🔄 Recebendo atualização de pagamento: {}", request);
 
         boolean updated = orderService.updateOrderAfterPayment(
-                request.getPreferenceId(),
+                request.getExternalReference(),
                 request.getPaymentId(),
                 request.getStatus()
         );

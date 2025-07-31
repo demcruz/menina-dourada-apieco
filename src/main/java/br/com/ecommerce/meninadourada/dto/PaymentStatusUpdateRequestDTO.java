@@ -4,6 +4,7 @@ public class PaymentStatusUpdateRequestDTO {
 
     private String paymentId;
     private String preferenceId;
+    private String externalReference;
     private String status;
 
     public String getPaymentId() {
@@ -36,6 +37,15 @@ public class PaymentStatusUpdateRequestDTO {
                 "paymentId='" + paymentId + '\'' +
                 ", preferenceId='" + preferenceId + '\'' +
                 ", status='" + status + '\'' +
+                ", externalReference='" + externalReference + '\'' +
                 '}';
+    }
+
+    public String getExternalReference() {
+        return externalReference;
+    }
+
+    public void setExternalReference(String externalReference) {
+        this.externalReference = externalReference;
     }
 }

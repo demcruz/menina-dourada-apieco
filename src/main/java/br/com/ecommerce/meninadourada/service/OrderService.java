@@ -128,8 +128,8 @@ public class OrderService {
 
 
 
-    public boolean updateOrderAfterPayment(String preferenceId, String paymentId, String paymentStatus) {
-        Optional<Order> optionalOrder = orderRepository.findByPaymentId(preferenceId); // Lembrando: você salvou o preferenceId como paymentId inicialmente
+    public boolean updateOrderAfterPayment(String externalReference, String paymentId, String paymentStatus) {
+        Optional<Order> optionalOrder = orderRepository.findByExternalReference(externalReference);
 
         if (optionalOrder.isPresent()) {
             Order order = optionalOrder.get();
@@ -149,7 +149,7 @@ public class OrderService {
 
             return true;
         } else {
-            log.warn("⚠️ Nenhum pedido encontrado com preferenceId: {}", preferenceId);
+            log.warn("⚠️ Nenhum pedido encontrado com externalReference: {}", externalReference);
             return false;
         }
     }
@@ -159,10 +159,11 @@ public class OrderService {
             return OrderStatus.PENDING;
         }
         return switch (mpStatus.toLowerCase()) {
-            case "approved" -> OrderStatus.PAID;
-            case "pending" -> OrderStatus.PENDING;
+            case "approved", "paid", "authorized" -> OrderStatus.PAID;
+            case "pending", "in_process", "payment_in_process" -> OrderStatus.PENDING;
             case "rejected" -> OrderStatus.REJECTED;
             case "cancelled" -> OrderStatus.CANCELLED;
+            case "refunded", "charged_back" -> OrderStatus.REFUNDED;
             default -> OrderStatus.PENDING;
         };
     }
