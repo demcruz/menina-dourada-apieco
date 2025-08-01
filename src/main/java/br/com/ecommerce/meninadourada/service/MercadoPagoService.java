@@ -86,38 +86,37 @@ public class MercadoPagoService {
             List<PreferenceItemRequest> items = dto.getItems().stream()
                     .map(i -> PreferenceItemRequest.builder()
                             .id(i.getProductId())
-                            .title(i.getProductName() + " - " + i.getVariationId())
+                            .title(i.getProductName() + (i.getVariationId() != null ? " - " + i.getVariationId() : ""))
                             .quantity(Math.toIntExact(i.getQuantity()))
                             .unitPrice(i.getUnitPrice())
                             .currencyId("BRL")
                             .build()
                     ).collect(Collectors.toList());
 
-            // Gerar a externalReference ANTES de criar a preferência para poder salvá-la no Order
             String orderExternalReference = UUID.randomUUID().toString();
 
-            // Construir o PayerRequest com dados completos do cliente
+            // Payer (pagador)
             PreferencePayerRequest mpPayerRequest = PreferencePayerRequest.builder()
                     .name(dto.getCustomerName())
                     .email(dto.getPayerEmail())
                     .phone(PhoneRequest.builder()
-                            .areaCode(dto.getCustomerPhone().substring(0, 2)) // Assumindo DDD nos 2 primeiros dígitos
-                            .number(dto.getCustomerPhone().substring(2)) // Restante do número
+                            .areaCode(dto.getCustomerPhone().substring(0, 2))
+                            .number(dto.getCustomerPhone().substring(2))
                             .build())
                     .identification(IdentificationRequest.builder()
-                            .type("CPF") // Tipo de documento
-                            .number(dto.getCustomerCpf()) // Número do CPF
+                            .type("CPF")
+                            .number(dto.getCustomerCpf())
                             .build())
-                    .address(AddressRequest.builder() // Endereço do pagador
+                    .address(AddressRequest.builder()
                             .zipCode(dto.getShippingAddress().getZipCode())
                             .streetName(dto.getShippingAddress().getStreetName())
                             .streetNumber(dto.getShippingAddress().getStreetNumber())
-                            .city(dto.getShippingAddress().getCityName()) // Campo 'city' no MP
-                            .state(dto.getShippingAddress().getStateName()) // Campo 'state' no MP
+                            .city(dto.getShippingAddress().getCityName())
+                            .state(dto.getShippingAddress().getStateName())
                             .build())
                     .build();
 
-            // Construir o ShipmentsRequest com dados de entrega
+            // Shipments (entrega)
             PreferenceShipmentsRequest mpShipmentsRequest = PreferenceShipmentsRequest.builder()
                     .receiverAddress(PreferenceReceiverAddressRequest.builder()
                             .zipCode(dto.getShippingAddress().getZipCode())
@@ -125,10 +124,9 @@ public class MercadoPagoService {
                             .streetNumber(dto.getShippingAddress().getStreetNumber())
                             .cityName(dto.getShippingAddress().getCityName())
                             .stateName(dto.getShippingAddress().getStateName())
-                            .countryName(dto.getShippingAddress().getCountryName())
+                            .countryName("Brasil")
                             .build())
                     .build();
-
 
             PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
                     .success("https://meninadourada.shop/checkout/success")
@@ -140,10 +138,10 @@ public class MercadoPagoService {
                     .items(items)
                     .externalReference(orderExternalReference)
                     .payer(mpPayerRequest)
-                    .shipments(mpShipmentsRequest) // Adicionar informações de envio
+                    .shipments(mpShipmentsRequest)
                     .backUrls(backUrls)
                     .autoReturn("all")
-                    .notificationUrl("https://meninadourada.shop/api/payments/webhook/mercadopago") // Sua URL de webhook
+                    .notificationUrl("https://meninadourada.shop/api/payments/webhook/mercadopago")
                     .build();
 
             Preference p = new PreferenceClient().create(request);
@@ -151,7 +149,6 @@ public class MercadoPagoService {
             if (p != null && p.getInitPoint() != null) {
                 logger.info("Payment preference created successfully. ID: {}. Checkout URL: {}", p.getId(), p.getInitPoint());
 
-                // Salvar o pedido no MongoDB com o ID da preferência E a externalReference
                 Order newOrder = new Order();
                 newOrder.setId(new ObjectId().toHexString());
                 newOrder.setUserId(dto.getUserId());
@@ -168,7 +165,6 @@ public class MercadoPagoService {
                                 itemDto.getUnitPrice()
                         )).collect(Collectors.toList()));
                 newOrder.setExternalReference(orderExternalReference);
-                // Popular os dados do cliente e endereço no seu objeto Order
                 newOrder.setCustomerName(dto.getCustomerName());
                 newOrder.setCustomerEmail(dto.getPayerEmail());
                 newOrder.setCustomerPhone(dto.getCustomerPhone());

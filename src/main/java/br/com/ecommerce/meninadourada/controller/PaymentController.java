@@ -36,8 +36,7 @@ public class PaymentController {
      * POST /create-preference
      */
     @PostMapping("/create-preference")
-    public ResponseEntity<?> createPreference(
-            @Valid @RequestBody PaymentRequestDTO dto) {
+    public ResponseEntity<?> createPreference(@Valid @RequestBody PaymentRequestDTO dto) {
         logger.info("Received create-preference for user: {}", dto.getUserId());
 
         try {
