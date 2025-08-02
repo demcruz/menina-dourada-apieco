@@ -112,6 +112,7 @@ public class EmailService {
         text.append("Itens da Venda:\n");
         for (OrderItem item : order.getItems()) {
             text.append("- ").append(item.getQuantity()).append("x ")
+                    .append(item.getProductName() != null ? item.getProductName() : "Produto")
                     .append(item.getProductName()).append(" (Variação: ").append(item.getVariationId())
                     .append(") - R$ ").append(item.getUnitPrice()).append(" cada\n");
         }
