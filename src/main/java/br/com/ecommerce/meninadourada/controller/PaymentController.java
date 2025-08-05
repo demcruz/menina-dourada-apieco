@@ -54,51 +54,63 @@ public class PaymentController {
 
     @PostMapping("/webhook/mercadopago")
     public ResponseEntity<String> handleMercadoPagoWebhook(
-            @RequestParam(value = "id", required = false) String idParam,
+            @RequestParam(value = "id",    required = false) String idParam,
             @RequestParam(value = "topic", required = false) String topicParam,
             @RequestBody(required = false) Map<String, Object> payload) {
 
-        // 1) Logue tudo pra ver o que realmente chegou
-        logger.info("📬 Webhook recebido → query id={}, topic={}  |  body payload={}",
+        // 1) Logue tudo pra inspeção
+        logger.info("📬 Webhook recebido → query id={} topic={}  |  body payload={}",
                 idParam, topicParam, payload);
 
         // 2) Defina id e topic, preferindo query params
-        String id = idParam;
+        String id    = idParam;
         String topic = topicParam;
 
-        // 3) Se não vier topic na query, pegue do JSON ("topic")
-        if ((topic == null || topic.isBlank()) && payload != null && payload.containsKey("topic")) {
+        // 3) Se não veio topic na query, tente body.topic (v2)
+        if (isBlank(topic) && payload != null && payload.containsKey("topic")) {
             topic = payload.get("topic").toString();
         }
+        // 4) Se ainda não veio, tente body.type (v1)
+        if (isBlank(topic) && payload != null && payload.containsKey("type")) {
+            topic = payload.get("type").toString();
+        }
 
-        // 4) Se não vier id na query, extraia de payload.data.id (v1) ou de payload.resource (v2)
-        if ((id == null || id.isBlank()) && payload != null) {
-            if (payload.containsKey("data") && payload.get("data") instanceof Map) {
-                Object o = ((Map<?,?>)payload.get("data")).get("id");
-                if (o != null) id = o.toString();
-            } else if (payload.containsKey("resource")) {
-                String resource = payload.get("resource").toString();
-                // extrai tudo depois da última barra
-                id = resource.substring(resource.lastIndexOf('/') + 1);
+        // 5) Se não veio id na query, tente body.data.id (v1)
+        if (isBlank(id) && payload != null && payload.containsKey("data")) {
+            Object data = payload.get("data");
+            if (data instanceof Map<?, ?> m && m.get("id") != null) {
+                id = m.get("id").toString();
             }
         }
-
-        // 5) Se ainda faltar algo, devolva 400
-        if (id == null || topic == null) {
-            logger.warn("🔴 Parâmetros obrigatórios ausentes. id={} topic={}", id, topic);
-            return ResponseEntity.badRequest()
-                    .body("Parâmetros obrigatórios ausentes: id e topic");
+        // 6) Se ainda não veio, tente body.resource (v2)
+        if (isBlank(id) && payload != null && payload.containsKey("resource")) {
+            String resource = payload.get("resource").toString();
+            id = resource.substring(resource.lastIndexOf('/') + 1);
         }
 
+        // 7) Se faltou algo, retorna 400
+        if (isBlank(id) || isBlank(topic)) {
+            logger.warn("🔴 Parâmetros ausentes id={} topic={}", id, topic);
+            return ResponseEntity
+                    .badRequest()
+                    .body("Faltam parâmetros obrigatórios: id e/ou topic");
+        }
+
+        // 8) Chama seu serviço
         try {
-            logger.info("✅ Chamando serviço de webhook com id={} topic={}", id, topic);
+            logger.info("✅ Processando webhook com id={} topic={}", id, topic);
             mercadoPagoService.handleWebhookNotification(id, topic);
             return ResponseEntity.ok("Webhook processado");
         } catch (Exception e) {
-            logger.error("❌ Erro ao processar webhook:", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            logger.error("❌ Erro no processamento do webhook", e);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Erro interno");
         }
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
     }
 
     @PostMapping("/update")
