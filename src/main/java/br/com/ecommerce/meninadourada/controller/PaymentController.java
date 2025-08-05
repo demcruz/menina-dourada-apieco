@@ -53,40 +53,53 @@ public class PaymentController {
     }
 
     @PostMapping("/webhook/mercadopago")
-    public ResponseEntity<String> handleMercadoPagoWebhook(@RequestBody Map<String, Object> payload) {
-        String id = null;
-        String topic = null;
+    public ResponseEntity<String> handleMercadoPagoWebhook(
+            @RequestParam(value = "id", required = false) String idParam,
+            @RequestParam(value = "topic", required = false) String topicParam,
+            @RequestBody(required = false) Map<String, Object> payload) {
 
-        // CORREÇÃO AQUI: Tenta extrair id e topic do corpo da requisição
-        if (payload != null && payload.containsKey("data")) {
-            Object data = payload.get("data");
-            if (data instanceof Map) {
-                Map<?, ?> dataMap = (Map<?, ?>) data;
-                Object idObject = dataMap.get("id");
-                if (idObject != null) {
-                    id = idObject.toString();
-                }
+        // 1) Logue tudo pra ver o que realmente chegou
+        logger.info("📬 Webhook recebido → query id={}, topic={}  |  body payload={}",
+                idParam, topicParam, payload);
+
+        // 2) Defina id e topic, preferindo query params
+        String id = idParam;
+        String topic = topicParam;
+
+        // 3) Se não vier topic na query, pegue do JSON ("topic")
+        if ((topic == null || topic.isBlank()) && payload != null && payload.containsKey("topic")) {
+            topic = payload.get("topic").toString();
+        }
+
+        // 4) Se não vier id na query, extraia de payload.data.id (v1) ou de payload.resource (v2)
+        if ((id == null || id.isBlank()) && payload != null) {
+            if (payload.containsKey("data") && payload.get("data") instanceof Map) {
+                Object o = ((Map<?,?>)payload.get("data")).get("id");
+                if (o != null) id = o.toString();
+            } else if (payload.containsKey("resource")) {
+                String resource = payload.get("resource").toString();
+                // extrai tudo depois da última barra
+                id = resource.substring(resource.lastIndexOf('/') + 1);
             }
         }
-        if (payload != null && payload.containsKey("type")) {
-            topic = payload.get("type").toString();
-        }
 
+        // 5) Se ainda faltar algo, devolva 400
         if (id == null || topic == null) {
-            logger.warn("Webhook recebido com parâmetros inválidos. id={}, topic={}", id, topic);
-            return ResponseEntity.badRequest().body("Parâmetros obrigatórios ausentes");
+            logger.warn("🔴 Parâmetros obrigatórios ausentes. id={} topic={}", id, topic);
+            return ResponseEntity.badRequest()
+                    .body("Parâmetros obrigatórios ausentes: id e topic");
         }
 
         try {
-            logger.info("Received MP webhook. id={}, topic={}", id, topic);
+            logger.info("✅ Chamando serviço de webhook com id={} topic={}", id, topic);
             mercadoPagoService.handleWebhookNotification(id, topic);
             return ResponseEntity.ok("Webhook processado");
         } catch (Exception e) {
-            logger.error("Erro ao processar webhook do Mercado Pago: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro interno ao processar webhook");
+            logger.error("❌ Erro ao processar webhook:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erro interno");
         }
     }
-
 
     @PostMapping("/update")
     public ResponseEntity<String> updatePaymentStatus(@RequestBody PaymentStatusUpdateRequestDTO request) {

@@ -57,7 +57,6 @@ public class MercadoPagoService {
     private String accessToken;
 
     private final OrderRepository orderRepository;
-    private final PreferenceClient preferenceClient;
     private final PaymentClient paymentClient;
     private final MerchantOrderClient merchantOrderClient;
     private final EmailService emailService; // NOVO: Injete o EmailService
@@ -65,7 +64,6 @@ public class MercadoPagoService {
     @Autowired
     public MercadoPagoService(OrderRepository orderRepository, EmailService emailService) { // NOVO: Adicione EmailService ao construtor
         this.orderRepository = orderRepository;
-        this.preferenceClient = new PreferenceClient();
         this.paymentClient = new PaymentClient();
         this.merchantOrderClient = new MerchantOrderClient();
         this.emailService = emailService; // Atribua o EmailService
